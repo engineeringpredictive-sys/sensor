@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Monitoring Ampere Motor Mixing</title>
+
+<!-- MQTT Library -->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<!-- Gauge Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: white;
+    text-align: center;
+}
+
+.container {
+    margin-top: 40px;
+}
+
+.card {
+    background: rgba(255,255,255,0.08);
+    padding: 20px;
+    border-radius: 15px;
+    width: 400px;
+    margin: auto;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+h1 {
+    margin-bottom: 10px;
+}
+
+.status {
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.ampere {
+    font-size: 40px;
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+footer {
+    margin-top: 30px;
+    font-size: 12px;
+    opacity: 0.7;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>⚡ Monitoring Motor Mixing</h1>
+
+    <div class="card">
+
+        <canvas id="gaugeChart"></canvas>
+
+        <div class="ampere">
+            <span id="ampValue">0</span> A
+        </div>
+
+        <div class="status" id="status">
+            Connecting...
+        </div>
+
+    </div>
+
+    <footer>
+        MQTT Broker: broker.emqx.io<br>
+        Topic: vakum/ampere
+    </footer>
+
+</div>
+
+<script>
+
+// MQTT Broker Config
+const broker = "wss://broker.emqx.io:8084/mqtt";
+const topic = "vakum/ampere";
+
+// Connect MQTT
+const client = mqtt.connect(broker);
+
+// Chart Gauge Setup
+const ctx = document.getElementById('gaugeChart').getContext('2d');
+
+const gaugeChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        datasets: [{
+            data: [0, 100],
+            backgroundColor: [
+                '#00ffcc',
+                '#333'
+            ],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        rotation: -90,
+        circumference: 180,
+        cutout: '70%',
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+
+// MQTT Events
+
+client.on('connect', function () {
+    document.getElementById("status").innerText = "✅ Connected";
+
+    client.subscribe(topic, function (err) {
+        if (!err) {
+            console.log("Subscribed to", topic);
+        }
+    });
+});
+
+client.on('message', function (topic, message) {
+
+    let amp = parseFloat(message.toString());
+
+    if (!isNaN(amp)) {
+
+        // Update text
+        document.getElementById("ampValue").innerText = amp.toFixed(1);
+
+        // Update gauge
+        gaugeChart.data.datasets[0].data = [
+            amp,
+            100 - amp
+        ];
+
+        gaugeChart.update();
+
+    }
+
+});
+
+client.on('error', function () {
+    document.getElementById("status").innerText = "❌ Connection Error";
+});
+
+</script>
+
+</body>
+</html>
